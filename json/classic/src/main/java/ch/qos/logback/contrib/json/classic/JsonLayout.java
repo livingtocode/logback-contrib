@@ -18,9 +18,14 @@ import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.contrib.json.JsonLayoutBase;
+import org.slf4j.Marker;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Stack;
 
 /**
  * A JsonLayout builds its {@link #toJsonMap(ch.qos.logback.classic.spi.ILoggingEvent) jsonMap} from a
@@ -111,6 +116,7 @@ public class JsonLayout extends JsonLayoutBase<ILoggingEvent> {
     public static final String MESSAGE_ATTR_NAME = "raw-message";
     public static final String EXCEPTION_ATTR_NAME = "exception";
     public static final String CONTEXT_ATTR_NAME = "context";
+    public static final String MARKERS_ATTR_NAME = "markers";
 
     protected boolean includeLevel;
     protected boolean includeThreadName;
@@ -120,6 +126,7 @@ public class JsonLayout extends JsonLayoutBase<ILoggingEvent> {
     protected boolean includeMessage;
     protected boolean includeException;
     protected boolean includeContextName;
+    protected boolean includeMarkers;
 
     private ThrowableHandlingConverter throwableProxyConverter;
 
@@ -207,6 +214,22 @@ public class JsonLayout extends JsonLayoutBase<ILoggingEvent> {
             String msg = event.getLoggerContextVO().getName();
             if (msg != null) {
                 map.put(CONTEXT_ATTR_NAME, msg);
+            }
+        }
+
+        if (this.includeMarkers) {
+            Marker marker = event.getMarker();
+            if (marker != null) {
+                List<String> markerList = new ArrayList<String>();
+                Stack<Marker> pendingMarkers = new Stack<Marker>();
+                pendingMarkers.push(marker);
+                while (!pendingMarkers.empty()) {
+                    markerList.add(pendingMarkers.peek().getName());
+                    for (Iterator<Marker> references = pendingMarkers.pop().iterator(); references.hasNext();) {
+                        pendingMarkers.push(references.next());
+                    }
+                }
+                map.put(MARKERS_ATTR_NAME, markerList);
             }
         }
 
@@ -299,6 +322,14 @@ public class JsonLayout extends JsonLayoutBase<ILoggingEvent> {
 
     public void setIncludeContextName(boolean includeContextName) {
         this.includeContextName = includeContextName;
+    }
+
+    public boolean isIncludeMarkers() {
+        return includeMarkers;
+    }
+
+    public void setIncludeMarkers(boolean includeMarkers) {
+        this.includeMarkers = includeMarkers;
     }
 
     public ThrowableHandlingConverter getThrowableProxyConverter() {
